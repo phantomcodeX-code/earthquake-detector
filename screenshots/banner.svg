@@ -1,0 +1,131 @@
+<svg width="1360" height="560" viewBox="0 0 680 280" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>SeismoWatch — Real-Time Earthquake Monitoring Dashboard</title>
+<desc>A dark banner showing the SeismoWatch brand, a seismic waveform, globe with Philippines highlighted, and severity legend</desc>
+
+<defs>
+  <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+  <clipPath id="globeClip">
+    <circle cx="540" cy="140" r="96"/>
+  </clipPath>
+  <radialGradient id="globeGlow" cx="50%" cy="40%" r="55%">
+    <stop offset="0%" stop-color="#1a2845"/>
+    <stop offset="100%" stop-color="#080d18"/>
+  </radialGradient>
+  <radialGradient id="bgGlow" cx="30%" cy="50%" r="60%">
+    <stop offset="0%" stop-color="#12203a"/>
+    <stop offset="100%" stop-color="#070c18"/>
+  </radialGradient>
+</defs>
+
+<!-- Background -->
+<rect width="680" height="280" fill="url(#bgGlow)"/>
+
+<!-- Grid lines horizontal -->
+<line x1="0" y1="56" x2="680" y2="56" stroke="#1a2640" stroke-width="0.5"/>
+<line x1="0" y1="112" x2="680" y2="112" stroke="#1a2640" stroke-width="0.5"/>
+<line x1="0" y1="168" x2="680" y2="168" stroke="#1a2640" stroke-width="0.5"/>
+<line x1="0" y1="224" x2="680" y2="224" stroke="#1a2640" stroke-width="0.5"/>
+<!-- Grid lines vertical -->
+<line x1="68" y1="0" x2="68" y2="280" stroke="#1a2640" stroke-width="0.5"/>
+<line x1="136" y1="0" x2="136" y2="280" stroke="#1a2640" stroke-width="0.5"/>
+<line x1="204" y1="0" x2="204" y2="280" stroke="#1a2640" stroke-width="0.5"/>
+<line x1="272" y1="0" x2="272" y2="280" stroke="#1a2640" stroke-width="0.5"/>
+<line x1="340" y1="0" x2="340" y2="280" stroke="#1a2640" stroke-width="0.5"/>
+<line x1="408" y1="0" x2="408" y2="280" stroke="#1a2640" stroke-width="0.5"/>
+<line x1="476" y1="0" x2="476" y2="280" stroke="#1a2640" stroke-width="0.5"/>
+
+<!-- Left red accent bar -->
+<rect x="0" y="0" width="4" height="280" fill="#FF2D20"/>
+<rect x="0" y="0" width="680" height="2" fill="#1e3060"/>
+
+<!-- Waveform faint echo -->
+<polyline fill="none" stroke="#FF2D20" stroke-width="0.8" stroke-opacity="0.15"
+  points="28,140 48,140 58,132 68,148 76,128 84,158 90,112 96,172 102,98 108,185 112,88 116,178 120,105 124,168 128,120 132,155 136,130 144,140 152,140 162,134 170,148 176,130 182,152 186,118 190,164 194,104 198,176 202,96 206,182 210,88 214,174 218,108 222,164 226,122 230,152 234,133 238,143 244,140 260,140 280,140 300,140 320,140 340,140 360,140 380,140 400,140 420,140 440,140 460,140"/>
+
+<!-- Main waveform -->
+<polyline fill="none" stroke="#FF2D20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+  points="28,140 48,140 58,130 68,152 76,122 84,164 90,104 96,180 102,88 108,192 112,80 116,186 120,98 124,172 128,112 132,162 136,124 144,140 152,140 162,132 170,150 176,124 182,158 186,112 190,170 194,98 198,182 202,90 206,188 210,82 214,180 218,102 222,168 226,115 230,158 234,128 238,145 244,140 260,140 280,140 300,140 320,140 340,140"/>
+<line x1="340" y1="140" x2="420" y2="140" stroke="#FF2D20" stroke-width="2" stroke-opacity="0.4"/>
+<line x1="28" y1="140" x2="420" y2="140" stroke="#2a3a58" stroke-width="0.5" stroke-dasharray="4,4"/>
+
+<!-- Globe -->
+<circle cx="540" cy="140" r="96" fill="url(#globeGlow)" stroke="#1e3060" stroke-width="1"/>
+<g clip-path="url(#globeClip)" stroke="#1e3460" stroke-width="0.5" fill="none">
+  <ellipse cx="540" cy="112" rx="96" ry="20"/>
+  <ellipse cx="540" cy="140" rx="96" ry="28"/>
+  <ellipse cx="540" cy="168" rx="96" ry="20"/>
+  <ellipse cx="540" cy="96" rx="96" ry="10"/>
+  <ellipse cx="540" cy="184" rx="96" ry="10"/>
+  <ellipse cx="540" cy="140" rx="16" ry="96"/>
+  <ellipse cx="540" cy="140" rx="40" ry="96"/>
+  <ellipse cx="540" cy="140" rx="64" ry="96"/>
+  <ellipse cx="540" cy="140" rx="88" ry="96"/>
+</g>
+<g clip-path="url(#globeClip)" fill="#1e3d5c" stroke="#254870" stroke-width="0.5">
+  <path d="M520,75 L570,72 L600,85 L615,105 L610,118 L595,112 L580,120 L568,110 L555,115 L540,108 L525,115 L510,108 L505,95 Z"/>
+  <path d="M548,120 L568,115 L578,128 L572,138 L558,135 L548,128 Z"/>
+  <path d="M570,185 L608,182 L615,200 L605,212 L578,210 L565,198 Z"/>
+  <path d="M460,105 L480,100 L488,118 L484,145 L472,155 L458,148 L452,128 Z"/>
+</g>
+<g clip-path="url(#globeClip)">
+  <ellipse cx="580" cy="128" rx="7" ry="11" fill="#06B6D4" fill-opacity="0.9" stroke="#06B6D4" stroke-width="0.5"/>
+  <ellipse cx="572" cy="135" rx="4" ry="7" fill="#06B6D4" fill-opacity="0.8"/>
+  <ellipse cx="584" cy="138" rx="4" ry="6" fill="#06B6D4" fill-opacity="0.8"/>
+</g>
+<circle cx="540" cy="140" r="96" fill="none" stroke="#2a4070" stroke-width="1.5"/>
+<line x1="591" y1="128" x2="612" y2="114" stroke="#06B6D4" stroke-width="0.8" stroke-opacity="0.7"/>
+<rect x="612" y="106" width="40" height="16" rx="3" fill="#06B6D4" fill-opacity="0.15" stroke="#06B6D4" stroke-width="0.5"/>
+<text x="632" y="117" text-anchor="middle" fill="#06B6D4" font-family="monospace" font-size="9" font-weight="600" letter-spacing="0.5">PH</text>
+<circle cx="580" cy="131" r="14" fill="none" stroke="#06B6D4" stroke-width="0.8" stroke-opacity="0.5"/>
+<circle cx="580" cy="131" r="22" fill="none" stroke="#06B6D4" stroke-width="0.5" stroke-opacity="0.25"/>
+<circle cx="505" cy="130" r="3" fill="#FF2D20" fill-opacity="0.8"/>
+<circle cx="505" cy="130" r="6" fill="none" stroke="#FF2D20" stroke-width="0.5" stroke-opacity="0.4"/>
+<circle cx="560" cy="155" r="2.5" fill="#F59E0B" fill-opacity="0.8"/>
+<circle cx="560" cy="155" r="5" fill="none" stroke="#F59E0B" stroke-width="0.5" stroke-opacity="0.4"/>
+<circle cx="545" cy="108" r="2" fill="#EAB308" fill-opacity="0.7"/>
+<circle cx="490" cy="148" r="1.8" fill="#22C55E" fill-opacity="0.6"/>
+<circle cx="600" cy="160" r="2" fill="#22C55E" fill-opacity="0.6"/>
+
+<!-- Logo mark -->
+<rect x="32" y="28" width="38" height="38" rx="8" fill="#FF2D20"/>
+<polyline fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+  points="38,47 44,47 48,39 52,55 55,43 58,51 61,45 64,47 70,47"/>
+
+<!-- Brand text -->
+<text x="80" y="48" fill="#E8EDF5" font-family="'Space Grotesk', sans-serif" font-size="28" font-weight="700" letter-spacing="-0.5">SeismoWatch</text>
+<text x="80" y="65" fill="#4A6090" font-family="monospace" font-size="10" letter-spacing="2">REAL-TIME EARTHQUAKE MONITORING</text>
+<line x1="32" y1="76" x2="440" y2="76" stroke="#1e2e4a" stroke-width="1"/>
+<text x="32" y="108" fill="#8A99B8" font-family="sans-serif" font-size="12" letter-spacing="0.2">Live USGS data feeds · Philippines-focused · Advance pop-up alerts</text>
+
+<!-- Severity legend -->
+<text x="32" y="198" fill="#4A6090" font-family="monospace" font-size="8" letter-spacing="1.5">SEVERITY SCALE</text>
+<rect x="32" y="206" width="36" height="18" rx="4" fill="#3B82F6" fill-opacity="0.15" stroke="#3B82F6" stroke-width="0.8"/>
+<text x="50" y="218" text-anchor="middle" fill="#3B82F6" font-family="sans-serif" font-size="9" font-weight="600">MICRO</text>
+<rect x="74" y="206" width="32" height="18" rx="4" fill="#22C55E" fill-opacity="0.15" stroke="#22C55E" stroke-width="0.8"/>
+<text x="90" y="218" text-anchor="middle" fill="#22C55E" font-family="sans-serif" font-size="9" font-weight="600">LIGHT</text>
+<rect x="112" y="206" width="52" height="18" rx="4" fill="#EAB308" fill-opacity="0.15" stroke="#EAB308" stroke-width="0.8"/>
+<text x="138" y="218" text-anchor="middle" fill="#EAB308" font-family="sans-serif" font-size="9" font-weight="600">MODERATE</text>
+<rect x="170" y="206" width="40" height="18" rx="4" fill="#F59E0B" fill-opacity="0.15" stroke="#F59E0B" stroke-width="0.8"/>
+<text x="190" y="218" text-anchor="middle" fill="#F59E0B" font-family="sans-serif" font-size="9" font-weight="600">STRONG</text>
+<rect x="216" y="206" width="38" height="18" rx="4" fill="#FF6B35" fill-opacity="0.15" stroke="#FF6B35" stroke-width="0.8"/>
+<text x="235" y="218" text-anchor="middle" fill="#FF6B35" font-family="sans-serif" font-size="9" font-weight="600">SEVERE</text>
+<rect x="260" y="206" width="42" height="18" rx="4" fill="#FF2D20" fill-opacity="0.15" stroke="#FF2D20" stroke-width="0.8"/>
+<text x="281" y="218" text-anchor="middle" fill="#FF2D20" font-family="sans-serif" font-size="9" font-weight="600">EXTREME</text>
+
+<!-- Tech badges -->
+<rect x="32" y="240" width="40" height="20" rx="4" fill="#1e2e4a" stroke="#2a3f66" stroke-width="0.8"/>
+<text x="52" y="253" text-anchor="middle" fill="#8A99B8" font-family="monospace" font-size="9">PHP</text>
+<rect x="78" y="240" width="46" height="20" rx="4" fill="#1e2e4a" stroke="#2a3f66" stroke-width="0.8"/>
+<text x="101" y="253" text-anchor="middle" fill="#8A99B8" font-family="monospace" font-size="9">MySQL</text>
+<rect x="130" y="240" width="58" height="20" rx="4" fill="#1e2e4a" stroke="#2a3f66" stroke-width="0.8"/>
+<text x="159" y="253" text-anchor="middle" fill="#8A99B8" font-family="monospace" font-size="9">Leaflet.js</text>
+<rect x="194" y="240" width="44" height="20" rx="4" fill="#1e2e4a" stroke="#2a3f66" stroke-width="0.8"/>
+<text x="216" y="253" text-anchor="middle" fill="#8A99B8" font-family="monospace" font-size="9">USGS</text>
+<rect x="244" y="240" width="46" height="20" rx="4" fill="#1e2e4a" stroke="#FF2D20" stroke-width="0.8"/>
+<text x="267" y="253" text-anchor="middle" fill="#FF2D20" font-family="monospace" font-size="9">LIVE ●</text>
+
+<rect x="676" y="0" width="4" height="280" fill="#1e2e4a"/>
+<rect x="0" y="278" width="680" height="2" fill="#1e2e4a"/>
+</svg>
