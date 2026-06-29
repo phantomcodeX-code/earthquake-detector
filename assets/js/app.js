@@ -609,11 +609,17 @@ const SW = {
   },
 
   openSettings() {
-    document.getElementById('settingsOverlay').classList.add('open');
+    const overlay = document.getElementById('settingsOverlay');
+    overlay.classList.add('open');
+    // Prevent body scroll when drawer is open
+    document.body.style.overflow = 'hidden';
   },
 
   closeSettings() {
-    document.getElementById('settingsOverlay').classList.remove('open');
+    const overlay = document.getElementById('settingsOverlay');
+    overlay.classList.remove('open');
+    // Restore body scroll
+    document.body.style.overflow = '';
   },
 
   async saveSettings() {
