@@ -1,3 +1,4 @@
+![SeismoWatch Banner](./screenshots/banner.svg)
 <div align="center">
 
 # 🌋 SeismoWatch
