@@ -184,28 +184,16 @@ const SW = {
   // ─────────────────────────────────────────────
   initMap() {
     if (!window.L) return;
-    const isLight = document.body.classList.contains('light-mode');
     this.leafletMap = L.map('earthquakeMap', {
       center: [12, 122],
       zoom: 5,
       zoomControl: true,
-      attributionControl: true,
+      attributionControl: false,
     });
 
-    L.tileLayer(isLight
-      ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 18,
     }).addTo(this.leafletMap);
-
-    L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(this.leafletMap);
-    this.mapRenderer = L.canvas({ padding: 0.5 });
-    this.layerGroups = {
-      markers:    L.layerGroup().addTo(this.leafletMap),
-      phBox:      L.layerGroup().addTo(this.leafletMap),
-      faultLines: L.layerGroup(),
-      depthRings: L.layerGroup(),
-    };
 
     // PH bounding box
     const phBounds = [[4.0, 116.0],[21.5, 127.0]];
@@ -213,291 +201,99 @@ const SW = {
       color: '#06B6D4', weight: 1,
       fillColor: '#06B6D4', fillOpacity: 0.03,
       dashArray: '4,4'
-    }).addTo(this.layerGroups.phBox);
-
-    L.tooltip({
-      className: 'ph-region-label',
-      permanent: true,
-      direction: 'center',
-      interactive: false
-    })
-      .setLatLng([12.8, 122.0])
-      .setContent('🇵🇭 Philippine Region')
-      .addTo(this.layerGroups.phBox);
-
-    const debouncedResize = this._debounce(() => this.leafletMap.invalidateSize(), 300);
-    window.addEventListener('resize', debouncedResize);
+    }).addTo(this.leafletMap);
   },
 
-  updateMap(earthquakes, newIds = []) {
-    if (!this.leafletMap || !this.layerGroups) return;
-
-    const newHash = earthquakes.map(e => e.usgs_id + e.magnitude).sort().join('|');
-    if (newHash === this._lastMapHash) return;
-    this._lastMapHash = newHash;
-
-    this.layerGroups.markers.clearLayers();
+  updateMap(earthquakes) {
+    if (!this.leafletMap) return;
+    // Clear old markers
+    this.mapMarkers.forEach(m => this.leafletMap.removeLayer(m));
     this.mapMarkers = [];
 
-    const SEVERITY_COLORS = {
-      extreme:  '#FF2D20',
-      severe:   '#FF6B35',
-      strong:   '#F59E0B',
-      moderate: '#EAB308',
-      light:    '#22C55E',
-      micro:    '#3B82F6',
-    };
-
-    const radiusForMagnitude = (mag) => {
-      if (mag < 3.0) return 4;
-      if (mag < 4.0) return 6;
-      if (mag < 5.0) return 9;
-      if (mag < 6.0) return 13;
-      if (mag < 7.0) return 18;
-      return 24;
-    };
-
     earthquakes.forEach(eq => {
-      const mag = parseFloat(eq.magnitude);
-      const lat = parseFloat(eq.latitude);
-      const lon = parseFloat(eq.longitude);
-      const sev = this.severity(mag);
-      const color = SEVERITY_COLORS[sev];
-      const isPH = lat >= 4.0 && lat <= 21.5 && lon >= 116.0 && lon <= 127.0;
-      const isTsun = parseInt(eq.tsunami) === 1;
-      const isNew = newIds.includes(eq.usgs_id);
-      const innerRadius = radiusForMagnitude(mag);
-      const outerRadius = innerRadius * 1.6;
-      const outerColor = isTsun ? SEVERITY_COLORS.extreme : (isPH ? '#06B6D4' : color);
-      const weight = isTsun ? 3 : (isPH ? 2 : 1);
-      const rawPlace = eq.place || 'Unknown location';
-      const place = this.escHtml(rawPlace);
-      const shortPlace = this.escHtml(rawPlace.length > 40 ? rawPlace.slice(0, 40) + '...' : rawPlace);
-      const url = this.escHtml(eq.url || '#');
-      const coords = [lat, lon];
-
-      const outerMarker = L.circleMarker(coords, {
-        radius: outerRadius,
-        fillColor: outerColor,
-        color: outerColor,
-        weight,
-        opacity: 0.9,
-        fillOpacity: 0.12,
-        renderer: this.mapRenderer,
-        usgsId: eq.usgs_id,
-        baseOpacity: 0.9,
-        baseFillOpacity: 0.12,
-      }).addTo(this.layerGroups.markers);
-
-      const innerMarker = L.circleMarker(coords, {
-        radius: innerRadius,
+      const color  = this.magColor(parseFloat(eq.magnitude));
+      const radius = Math.max(4, parseFloat(eq.magnitude) * 3);
+      const marker = L.circleMarker([eq.latitude, eq.longitude], {
+        radius,
         fillColor: color,
-        color,
+        color: color,
         weight: 1,
         opacity: 0.9,
-        fillOpacity: 0.85,
-        renderer: this.mapRenderer,
-        usgsId: eq.usgs_id,
-        baseOpacity: 0.9,
-        baseFillOpacity: 0.85,
-      }).addTo(this.layerGroups.markers);
-
-      this.mapMarkers.push(outerMarker, innerMarker);
-
-      innerMarker.bindTooltip(`
-        <span style="color:${color};font-weight:600;font-size:14px">M${mag.toFixed(1)}</span>
-        <div style="margin-top:2px;font-size:12px;color:var(--text-secondary)">${shortPlace}</div>
-        <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">${this.timeAgo(eq.event_time)}</div>
-      `, {
-        className: 'sw-tooltip',
-        sticky: false,
-        offset: [10, 0]
+        fillOpacity: 0.35,
       });
-
-      innerMarker.bindPopup(`
-        <div class="sw-popup">
-          <div class="sp-header">
-            <span class="sp-mag" style="color:${color}">M${mag.toFixed(1)}</span>
-            <span class="sp-sev" style="color:${color}">${this.severityLabel(mag)}</span>
-          </div>
-          <div class="sp-place">${place}</div>
-          <div class="sp-grid">
-            <div><label>Depth</label><span>${parseFloat(eq.depth_km).toFixed(1)} km</span></div>
-            <div><label>Time</label><span>${this.formatDate(eq.event_time)}</span></div>
-            <div><label>Coords</label><span>${lat.toFixed(2)}, ${lon.toFixed(2)}</span></div>
-            <div><label>Felt</label><span>${eq.felt_reports || '0'} reports</span></div>
-          </div>
-          ${isTsun ? '<div class="sp-tsunami">⚠️ TSUNAMI WARNING</div>' : ''}
-          ${isPH ? '<div class="sp-ph">🇵🇭 Philippine Region</div>' : ''}
-          <a href="${url}" target="_blank" rel="noopener" class="sp-link">View on USGS →</a>
-        </div>
-      `, {
-        className: 'sw-popup-wrap',
-        maxWidth: 260,
-        closeButton: true,
-        autoClose: true,
-        closeOnClick: false
-      });
-
-      const flashFeedItem = () => {
-        const feedItem = document.querySelector(`.eq-item[onclick*="${eq.usgs_id}"]`);
-        if (feedItem) {
-          feedItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          feedItem.classList.add('new-flash');
-          setTimeout(() => feedItem.classList.remove('new-flash'), 1200);
-        }
-      };
-
-      innerMarker.on('click', flashFeedItem);
-      outerMarker.on('click', () => {
-        innerMarker.openPopup();
-        flashFeedItem();
-      });
-
-      if (isTsun) {
-        outerMarker.bindTooltip('⚠ TSUNAMI', {
-          permanent: true,
-          direction: 'top',
-          className: 'tsunami-tooltip',
-          offset: [0, -outerRadius - 5]
-        });
-
-        const tsunamiPulse = L.divIcon({
-          className: 'marker-new marker-tsunami-pulse',
-          html: `
-            <svg width="${outerRadius * 2.8}" height="${outerRadius * 2.8}" viewBox="0 0 100 100" aria-hidden="true">
-              <circle class="marker-pulse-ring tsunami-pulse-ring" cx="50" cy="50" r="22"
-                fill="none" stroke="${outerColor}" stroke-width="8" />
-            </svg>`,
-          iconSize: [outerRadius * 2.8, outerRadius * 2.8],
-          iconAnchor: [outerRadius * 1.4, outerRadius * 1.4]
-        });
-        const tsunamiPulseMarker = L.marker(coords, {
-          icon: tsunamiPulse,
-          interactive: false
-        }).addTo(this.layerGroups.markers);
-        this.mapMarkers.push(tsunamiPulseMarker);
-      }
-
-      if (isNew) {
-        const pulseIcon = L.divIcon({
-          className: 'marker-new',
-          html: `
-            <svg width="${outerRadius * 3}" height="${outerRadius * 3}" viewBox="0 0 100 100" aria-hidden="true">
-              <circle class="marker-pulse-ring" cx="50" cy="50" r="18"
-                fill="none" stroke="${outerColor}" stroke-width="8" />
-            </svg>`,
-          iconSize: [outerRadius * 3, outerRadius * 3],
-          iconAnchor: [outerRadius * 1.5, outerRadius * 1.5]
-        });
-        const pulseMarker = L.marker(coords, {
-          icon: pulseIcon,
-          interactive: false
-        }).addTo(this.layerGroups.markers);
-        this.mapMarkers.push(pulseMarker);
-        setTimeout(() => this.layerGroups.markers.removeLayer(pulseMarker), 4500);
-      }
+      marker.bindPopup(
+        `<div style="font-family:Inter,sans-serif;font-size:12px;color:#E8EDF5;background:#151C2E;padding:4px 2px">
+           <strong style="font-size:15px;color:${color}">M${parseFloat(eq.magnitude).toFixed(1)}</strong>
+           <br>${eq.place}
+           <br><span style="color:#8A99B8">${this.formatDate(eq.event_time)}</span>
+           <br>Depth: ${parseFloat(eq.depth_km).toFixed(1)} km
+         </div>`,
+        { className: 'map-popup' }
+      );
+      marker.addTo(this.leafletMap);
+      this.mapMarkers.push(marker);
     });
   },
 
-  // ─────────────────────────────────────────────
-  // MAP TOOLBAR / SYNC
-  // ─────────────────────────────────────────────
   initMapToolbar() {
     const btnReset = document.getElementById('btnResetView');
     if (btnReset) {
       btnReset.addEventListener('click', () => {
         if (!this.leafletMap) return;
-        const center = this.phFocus ? [12.8797, 121.7740] : [12, 122];
-        const zoom   = this.phFocus ? 5 : 3;
-        this.leafletMap.flyTo(center, zoom, { duration: 1.0 });
+        this.leafletMap.setView([12, 122], 5);
       });
     }
 
     const btnFullscreen = document.getElementById('btnFullscreen');
     if (btnFullscreen) {
       btnFullscreen.addEventListener('click', () => {
-        if (!this.leafletMap) return;
         const mapEl = document.getElementById('earthquakeMap');
+        if (!mapEl) return;
         mapEl.classList.toggle('map-fullscreen');
-        btnFullscreen.classList.toggle('active', mapEl.classList.contains('map-fullscreen'));
-        setTimeout(() => this.leafletMap.invalidateSize(), 200);
+        setTimeout(() => {
+          if (this.leafletMap) this.leafletMap.invalidateSize();
+        }, 150);
       });
     }
-
-    const layerMap = {
-      Markers: 'markers',
-      PHBox: 'phBox',
-      FaultLines: 'faultLines',
-      DepthRings: 'depthRings',
-    };
-    Object.keys(layerMap).forEach(name => {
-      const key = layerMap[name];
-      const el = document.getElementById('layer' + name);
-      if (el) {
-        el.addEventListener('change', (e) => {
-          this.toggleLayer(key, e.target.checked);
-        });
-      }
-    });
 
     const btnLayers = document.getElementById('btnLayers');
     if (btnLayers) {
       btnLayers.addEventListener('click', () => {
-        const dd = document.getElementById('mapLayersDropdown');
-        if (dd) {
-          const isOpen = dd.style.display === 'none';
-          dd.style.display = isOpen ? 'block' : 'none';
-          btnLayers.classList.toggle('active', isOpen);
+        const dropdown = document.getElementById('mapLayersDropdown');
+        if (!dropdown) return;
+        dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+      });
+    }
+
+    const markersToggle = document.getElementById('layerMarkers');
+    if (markersToggle) {
+      markersToggle.addEventListener('change', () => {
+        if (markersToggle.checked) this.updateMap(this.getMapFilteredEarthquakes());
+        else {
+          this.mapMarkers.forEach(m => this.leafletMap && this.leafletMap.removeLayer(m));
+          this.mapMarkers = [];
         }
       });
     }
 
     const timeFilter = document.getElementById('mapTimeFilter');
     if (timeFilter) {
-      timeFilter.addEventListener('change', (e) => {
-        this.mapTimeFilter = parseInt(e.target.value);
-        this.renderMapMarkers();
+      this.mapTimeFilter = parseInt(timeFilter.value, 10) || 24;
+      timeFilter.addEventListener('change', () => {
+        this.mapTimeFilter = parseInt(timeFilter.value, 10) || 24;
+        this.updateMap(this.getMapFilteredEarthquakes());
       });
     }
   },
 
-  toggleLayer(name, show) {
-    if (!this.leafletMap || !this.layerGroups) return;
-    const lg = this.layerGroups[name];
-    if (!lg) return;
-    if (show) this.leafletMap.addLayer(lg);
-    else this.leafletMap.removeLayer(lg);
-  },
-
-  renderMapMarkers() {
+  getMapFilteredEarthquakes() {
     const cutoff = new Date(Date.now() - this.mapTimeFilter * 3600000);
-    const filtered = this.earthquakes.filter(e => new Date(e.event_time) >= cutoff);
-    this._lastMapHash = null;
-    this.updateMap(filtered);
-    this.renderList();
+    return this.earthquakes.filter(eq => new Date(eq.event_time) >= cutoff);
   },
 
-  syncMapToFilter(visibleIds) {
-    this.mapMarkers.forEach(marker => {
-      if (!marker.options || !marker.options.usgsId || typeof marker.setStyle !== 'function') return;
-      const isVisible = visibleIds.includes(marker.options.usgsId);
-      marker.setStyle({
-        opacity: isVisible ? (marker.options.baseOpacity ?? 0.9) : 0.08,
-        fillOpacity: isVisible ? (marker.options.baseFillOpacity ?? 0.85) : 0.05,
-      });
-    });
-  },
-
-  _debounce(fn, delay) {
-    let timer;
-    return (...args) => {
-      clearTimeout(timer);
-      timer = setTimeout(() => fn.apply(this, args), delay);
-    };
-  },
-
+  // ─────────────────────────────────────────────
   // SOUND ENGINE
+  // ─────────────────────────────────────────────
   audioCtx: null,
 
   initSoundEngine() {
@@ -546,15 +342,22 @@ const SW = {
     try {
       const res  = await fetch('api/earthquakes.php?action=list&hours=24&limit=50');
       const data = await res.json();
-      if (data.status === 'ok') {
-        this.earthquakes = data.data;
-        this.updateMap(this.earthquakes);
-        this.renderList();
-        this.updateStats();
+      if (data.status !== 'ok') {
+        throw new Error(data.message || 'Earthquake list request failed');
       }
+
+      this.earthquakes = Array.isArray(data.data) ? data.data : [];
+      this.renderList();
+      this.updateMap(this.getMapFilteredEarthquakes());
+      this.updateStats();
       this.setStatus('online');
+
+      if (!this.earthquakes.length) {
+        await this.fetchUpdates();
+      }
     } catch(e) {
       this.setStatus('offline');
+      this.showListMessage('Unable to load earthquake data. Check Apache, MySQL, and the API response.');
       console.error('Initial load failed:', e);
     }
   },
@@ -582,11 +385,12 @@ const SW = {
       if (listData.status === 'ok') {
         const oldIds = new Set(this.earthquakes.map(e => e.usgs_id));
         const newOnes = listData.data.filter(e => !oldIds.has(e.usgs_id));
-        const newIds = newOnes.map(e => e.usgs_id);
         this.earthquakes = listData.data;
-        this.updateMap(this.earthquakes, newIds);
-        this.renderList(newIds);
+        this.renderList(newOnes.map(e => e.usgs_id));
+        this.updateMap(this.getMapFilteredEarthquakes());
         this.updateStats();
+      } else {
+        throw new Error(listData.message || 'Earthquake list refresh failed');
       }
 
       this.lastFetchTime = new Date();
@@ -597,6 +401,8 @@ const SW = {
 
     } catch(e) {
       this.setStatus('offline');
+      this.showToast('Unable to fetch earthquake data');
+      console.error('Fetch failed:', e);
     }
     this.setFetchIndicator(false);
   },
@@ -683,7 +489,6 @@ const SW = {
           </svg>
           <p>No earthquakes match this filter</p>
         </div>`;
-      this.syncMapToFilter([]);
       return;
     }
 
@@ -713,9 +518,21 @@ const SW = {
           </div>
         </div>`;
     }).join('');
+  },
 
-    const visibleIds = filtered.map(e => e.usgs_id);
-    this.syncMapToFilter(visibleIds);
+  showListMessage(message) {
+    const container = document.getElementById('eqList');
+    const countEl = document.getElementById('eqCount');
+    if (countEl) countEl.textContent = '0';
+    if (!container) return;
+    container.innerHTML = `
+      <div class="eq-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
+        </svg>
+        <p>${this.escHtml(message)}</p>
+      </div>`;
   },
 
   // ─────────────────────────────────────────────
@@ -784,19 +601,6 @@ const SW = {
   // ─────────────────────────────────────────────
   openDetail(usgsId) {
     const eq = this.earthquakes.find(e => e.usgs_id === usgsId);
-    if (eq && this.leafletMap) {
-      this.leafletMap.flyTo(
-        [parseFloat(eq.latitude), parseFloat(eq.longitude)],
-        7,
-        { duration: 1.2, easeLinearity: 0.4 }
-      );
-      setTimeout(() => {
-        const marker = this.mapMarkers.find(m =>
-          m.options && m.options.usgsId === usgsId && typeof m.openPopup === 'function' && m.getPopup()
-        );
-        if (marker) marker.openPopup();
-      }, 1350);
-    }
     if (!eq) return;
     this.selectedEq = eq;
     const mag = parseFloat(eq.magnitude);
@@ -1078,26 +882,20 @@ const SW = {
       : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
     L.tileLayer(url, { maxZoom: 18 }).addTo(this.leafletMap);
 
-    if (this.layerGroups && this.layerGroups.phBox) {
-      const phToggle = document.getElementById('layerPHBox');
-      if (!phToggle || phToggle.checked) this.leafletMap.addLayer(this.layerGroups.phBox);
-    }
+    // Re-add PH bounding box
+    L.rectangle([[4.0, 116.0],[21.5, 127.0]], {
+      color: '#06B6D4', weight: 1,
+      fillColor: '#06B6D4', fillOpacity: 0.03,
+      dashArray: '4,4'
+    }).addTo(this.leafletMap);
 
     // Redraw markers
-    this.renderMapMarkers();
-    setTimeout(() => this.leafletMap.invalidateSize(), 100);
+    this.updateMap(this.getMapFilteredEarthquakes());
   }
 };
 
 // ── Bootstrap ──────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  if (window.SW_CONFIG) {
-    SW.alertMag     = SW_CONFIG.alertMag;
-    SW.phMinMag     = SW_CONFIG.phMinMag;
-    SW.pollInterval = SW_CONFIG.interval;
-    SW.phFocus      = SW_CONFIG.phFocus;
-    SW.soundEnabled = SW_CONFIG.soundEnabled;
-  }
   SW.applyTheme(); // Apply before init to avoid flash
   SW.init();
 });
