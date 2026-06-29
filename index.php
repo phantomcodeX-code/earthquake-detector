@@ -34,26 +34,6 @@ $alertSound = Database::getSetting('alert_sound', '1');
       soundEnabled:<?= $alertSound === '1' ? 'true' : 'false' ?>,
     };
   </script>
-
-  <style>
-    /* Leaflet popup override */
-    .leaflet-popup-content-wrapper {
-      background: #151C2E !important;
-      color: #E8EDF5 !important;
-      border: 1px solid #1E2A42 !important;
-      border-radius: 8px !important;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
-    }
-    .leaflet-popup-tip { background: #151C2E !important; }
-    .leaflet-popup-content { margin: 12px 14px !important; font-size: 12px; }
-    .leaflet-container { background: #0d1420; }
-    .leaflet-control-zoom a {
-      background: #151C2E !important;
-      color: #8A99B8 !important;
-      border-color: #1E2A42 !important;
-    }
-    .leaflet-control-zoom a:hover { color: #E8EDF5 !important; }
-  </style>
 </head>
 
 <body>
@@ -194,21 +174,42 @@ $alertSound = Database::getSetting('alert_sound', '1');
           <span class="panel-badge">Live</span>
         </div>
         <div id="earthquakeMap"></div>
+        <div class="map-toolbar" id="mapToolbar">
+          <button class="map-toolbar-btn" id="btnLayers">⊞ Layers ▾</button>
+          <button class="map-toolbar-btn" id="btnResetView">⌖ Reset</button>
+          <button class="map-toolbar-btn" id="btnFullscreen">⛶ Fullscreen</button>
+          <div class="map-toolbar-sep"></div>
+          <select class="map-toolbar-select" id="mapTimeFilter">
+            <option value="1">Last 1 hour</option>
+            <option value="6">Last 6 hours</option>
+            <option value="24" selected>Last 24 hours</option>
+            <option value="168">Last 7 days</option>
+          </select>
+        </div>
+
+        <!-- Layers dropdown (hidden by default) -->
+        <div class="map-layers-dropdown" id="mapLayersDropdown" style="display:none">
+          <label><input type="checkbox" id="layerMarkers" checked> Earthquake Markers</label>
+          <label><input type="checkbox" id="layerPHBox" checked> Philippines Region</label>
+          <label><input type="checkbox" id="layerFaultLines"> Fault Lines</label>
+          <label><input type="checkbox" id="layerDepthRings"> Depth Rings</label>
+        </div>
+
         <div class="map-legend">
           <div class="legend-item">
-            <div class="legend-dot" style="background:#FF2D20"></div> Extreme
+            <div class="legend-dot legend-extreme"></div> Extreme
           </div>
           <div class="legend-item">
-            <div class="legend-dot" style="background:#F59E0B"></div> Strong
+            <div class="legend-dot legend-strong"></div> Strong
           </div>
           <div class="legend-item">
-            <div class="legend-dot" style="background:#22C55E"></div> Light
+            <div class="legend-dot legend-light"></div> Light
           </div>
           <div class="legend-item">
-            <div class="legend-dot" style="background:#3B82F6"></div> Micro
+            <div class="legend-dot legend-micro"></div> Micro
           </div>
           <div class="legend-item">
-            <div class="legend-dot" style="background:rgba(6,182,212,0.5);border:1px solid #06B6D4"></div> PH Region
+            <div class="legend-dot legend-ph"></div> PH Region
           </div>
         </div>
       </div>
@@ -385,19 +386,6 @@ $alertSound = Database::getSetting('alert_sound', '1');
 
 <!-- App JS -->
 <script src="assets/js/app.js"></script>
-
-<script>
-  // Apply server-side config to SW before init
-  document.addEventListener('DOMContentLoaded', function() {
-    if (window.SW_CONFIG) {
-      SW.alertMag     = SW_CONFIG.alertMag;
-      SW.phMinMag     = SW_CONFIG.phMinMag;
-      SW.pollInterval = SW_CONFIG.interval;
-      SW.phFocus      = SW_CONFIG.phFocus;
-      SW.soundEnabled = SW_CONFIG.soundEnabled;
-    }
-  });
-</script>
 
 <!-- ══════════════════════════════════════════
      FLOATING CUSTOMIZE TAB (Phoenix-style)

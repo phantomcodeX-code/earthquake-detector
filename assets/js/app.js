@@ -17,9 +17,13 @@ const SW = {
   fetchTimer:   null,
   mapMarkers:   [],
   leafletMap:   null,
+  layerGroups:  null,
+  mapRenderer:  null,
+  mapTimeFilter: 24,
   lastFetchTime: null,
   isOnline:     true,
   selectedEq:   null,
+  _lastMapHash: null,
 
   // ── Severity helper ─────────────────────────
   severity(mag) {
@@ -71,6 +75,7 @@ const SW = {
     this.initClock();
     this.initWaveform();
     this.initMap();
+    this.initMapToolbar();
     this.initSettings();
     this.initSoundEngine();
     this.bindUI();
@@ -179,16 +184,28 @@ const SW = {
   // ─────────────────────────────────────────────
   initMap() {
     if (!window.L) return;
+    const isLight = document.body.classList.contains('light-mode');
     this.leafletMap = L.map('earthquakeMap', {
       center: [12, 122],
       zoom: 5,
       zoomControl: true,
-      attributionControl: false,
+      attributionControl: true,
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    L.tileLayer(isLight
+      ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 18,
     }).addTo(this.leafletMap);
+
+    L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(this.leafletMap);
+    this.mapRenderer = L.canvas({ padding: 0.5 });
+    this.layerGroups = {
+      markers:    L.layerGroup().addTo(this.leafletMap),
+      phBox:      L.layerGroup().addTo(this.leafletMap),
+      faultLines: L.layerGroup(),
+      depthRings: L.layerGroup(),
+    };
 
     // PH bounding box
     const phBounds = [[4.0, 116.0],[21.5, 127.0]];
@@ -196,43 +213,291 @@ const SW = {
       color: '#06B6D4', weight: 1,
       fillColor: '#06B6D4', fillOpacity: 0.03,
       dashArray: '4,4'
-    }).addTo(this.leafletMap);
+    }).addTo(this.layerGroups.phBox);
+
+    L.tooltip({
+      className: 'ph-region-label',
+      permanent: true,
+      direction: 'center',
+      interactive: false
+    })
+      .setLatLng([12.8, 122.0])
+      .setContent('🇵🇭 Philippine Region')
+      .addTo(this.layerGroups.phBox);
+
+    const debouncedResize = this._debounce(() => this.leafletMap.invalidateSize(), 300);
+    window.addEventListener('resize', debouncedResize);
   },
 
-  updateMap(earthquakes) {
-    if (!this.leafletMap) return;
-    // Clear old markers
-    this.mapMarkers.forEach(m => this.leafletMap.removeLayer(m));
+  updateMap(earthquakes, newIds = []) {
+    if (!this.leafletMap || !this.layerGroups) return;
+
+    const newHash = earthquakes.map(e => e.usgs_id + e.magnitude).sort().join('|');
+    if (newHash === this._lastMapHash) return;
+    this._lastMapHash = newHash;
+
+    this.layerGroups.markers.clearLayers();
     this.mapMarkers = [];
 
+    const SEVERITY_COLORS = {
+      extreme:  '#FF2D20',
+      severe:   '#FF6B35',
+      strong:   '#F59E0B',
+      moderate: '#EAB308',
+      light:    '#22C55E',
+      micro:    '#3B82F6',
+    };
+
+    const radiusForMagnitude = (mag) => {
+      if (mag < 3.0) return 4;
+      if (mag < 4.0) return 6;
+      if (mag < 5.0) return 9;
+      if (mag < 6.0) return 13;
+      if (mag < 7.0) return 18;
+      return 24;
+    };
+
     earthquakes.forEach(eq => {
-      const color  = this.magColor(parseFloat(eq.magnitude));
-      const radius = Math.max(4, parseFloat(eq.magnitude) * 3);
-      const marker = L.circleMarker([eq.latitude, eq.longitude], {
-        radius,
+      const mag = parseFloat(eq.magnitude);
+      const lat = parseFloat(eq.latitude);
+      const lon = parseFloat(eq.longitude);
+      const sev = this.severity(mag);
+      const color = SEVERITY_COLORS[sev];
+      const isPH = lat >= 4.0 && lat <= 21.5 && lon >= 116.0 && lon <= 127.0;
+      const isTsun = parseInt(eq.tsunami) === 1;
+      const isNew = newIds.includes(eq.usgs_id);
+      const innerRadius = radiusForMagnitude(mag);
+      const outerRadius = innerRadius * 1.6;
+      const outerColor = isTsun ? SEVERITY_COLORS.extreme : (isPH ? '#06B6D4' : color);
+      const weight = isTsun ? 3 : (isPH ? 2 : 1);
+      const rawPlace = eq.place || 'Unknown location';
+      const place = this.escHtml(rawPlace);
+      const shortPlace = this.escHtml(rawPlace.length > 40 ? rawPlace.slice(0, 40) + '...' : rawPlace);
+      const url = this.escHtml(eq.url || '#');
+      const coords = [lat, lon];
+
+      const outerMarker = L.circleMarker(coords, {
+        radius: outerRadius,
+        fillColor: outerColor,
+        color: outerColor,
+        weight,
+        opacity: 0.9,
+        fillOpacity: 0.12,
+        renderer: this.mapRenderer,
+        usgsId: eq.usgs_id,
+        baseOpacity: 0.9,
+        baseFillOpacity: 0.12,
+      }).addTo(this.layerGroups.markers);
+
+      const innerMarker = L.circleMarker(coords, {
+        radius: innerRadius,
         fillColor: color,
-        color: color,
+        color,
         weight: 1,
         opacity: 0.9,
-        fillOpacity: 0.35,
+        fillOpacity: 0.85,
+        renderer: this.mapRenderer,
+        usgsId: eq.usgs_id,
+        baseOpacity: 0.9,
+        baseFillOpacity: 0.85,
+      }).addTo(this.layerGroups.markers);
+
+      this.mapMarkers.push(outerMarker, innerMarker);
+
+      innerMarker.bindTooltip(`
+        <span style="color:${color};font-weight:600;font-size:14px">M${mag.toFixed(1)}</span>
+        <div style="margin-top:2px;font-size:12px;color:var(--text-secondary)">${shortPlace}</div>
+        <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">${this.timeAgo(eq.event_time)}</div>
+      `, {
+        className: 'sw-tooltip',
+        sticky: false,
+        offset: [10, 0]
       });
-      marker.bindPopup(
-        `<div style="font-family:Inter,sans-serif;font-size:12px;color:#E8EDF5;background:#151C2E;padding:4px 2px">
-           <strong style="font-size:15px;color:${color}">M${parseFloat(eq.magnitude).toFixed(1)}</strong>
-           <br>${eq.place}
-           <br><span style="color:#8A99B8">${this.formatDate(eq.event_time)}</span>
-           <br>Depth: ${parseFloat(eq.depth_km).toFixed(1)} km
-         </div>`,
-        { className: 'map-popup' }
-      );
-      marker.addTo(this.leafletMap);
-      this.mapMarkers.push(marker);
+
+      innerMarker.bindPopup(`
+        <div class="sw-popup">
+          <div class="sp-header">
+            <span class="sp-mag" style="color:${color}">M${mag.toFixed(1)}</span>
+            <span class="sp-sev" style="color:${color}">${this.severityLabel(mag)}</span>
+          </div>
+          <div class="sp-place">${place}</div>
+          <div class="sp-grid">
+            <div><label>Depth</label><span>${parseFloat(eq.depth_km).toFixed(1)} km</span></div>
+            <div><label>Time</label><span>${this.formatDate(eq.event_time)}</span></div>
+            <div><label>Coords</label><span>${lat.toFixed(2)}, ${lon.toFixed(2)}</span></div>
+            <div><label>Felt</label><span>${eq.felt_reports || '0'} reports</span></div>
+          </div>
+          ${isTsun ? '<div class="sp-tsunami">⚠️ TSUNAMI WARNING</div>' : ''}
+          ${isPH ? '<div class="sp-ph">🇵🇭 Philippine Region</div>' : ''}
+          <a href="${url}" target="_blank" rel="noopener" class="sp-link">View on USGS →</a>
+        </div>
+      `, {
+        className: 'sw-popup-wrap',
+        maxWidth: 260,
+        closeButton: true,
+        autoClose: true,
+        closeOnClick: false
+      });
+
+      const flashFeedItem = () => {
+        const feedItem = document.querySelector(`.eq-item[onclick*="${eq.usgs_id}"]`);
+        if (feedItem) {
+          feedItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          feedItem.classList.add('new-flash');
+          setTimeout(() => feedItem.classList.remove('new-flash'), 1200);
+        }
+      };
+
+      innerMarker.on('click', flashFeedItem);
+      outerMarker.on('click', () => {
+        innerMarker.openPopup();
+        flashFeedItem();
+      });
+
+      if (isTsun) {
+        outerMarker.bindTooltip('⚠ TSUNAMI', {
+          permanent: true,
+          direction: 'top',
+          className: 'tsunami-tooltip',
+          offset: [0, -outerRadius - 5]
+        });
+
+        const tsunamiPulse = L.divIcon({
+          className: 'marker-new marker-tsunami-pulse',
+          html: `
+            <svg width="${outerRadius * 2.8}" height="${outerRadius * 2.8}" viewBox="0 0 100 100" aria-hidden="true">
+              <circle class="marker-pulse-ring tsunami-pulse-ring" cx="50" cy="50" r="22"
+                fill="none" stroke="${outerColor}" stroke-width="8" />
+            </svg>`,
+          iconSize: [outerRadius * 2.8, outerRadius * 2.8],
+          iconAnchor: [outerRadius * 1.4, outerRadius * 1.4]
+        });
+        const tsunamiPulseMarker = L.marker(coords, {
+          icon: tsunamiPulse,
+          interactive: false
+        }).addTo(this.layerGroups.markers);
+        this.mapMarkers.push(tsunamiPulseMarker);
+      }
+
+      if (isNew) {
+        const pulseIcon = L.divIcon({
+          className: 'marker-new',
+          html: `
+            <svg width="${outerRadius * 3}" height="${outerRadius * 3}" viewBox="0 0 100 100" aria-hidden="true">
+              <circle class="marker-pulse-ring" cx="50" cy="50" r="18"
+                fill="none" stroke="${outerColor}" stroke-width="8" />
+            </svg>`,
+          iconSize: [outerRadius * 3, outerRadius * 3],
+          iconAnchor: [outerRadius * 1.5, outerRadius * 1.5]
+        });
+        const pulseMarker = L.marker(coords, {
+          icon: pulseIcon,
+          interactive: false
+        }).addTo(this.layerGroups.markers);
+        this.mapMarkers.push(pulseMarker);
+        setTimeout(() => this.layerGroups.markers.removeLayer(pulseMarker), 4500);
+      }
     });
   },
 
   // ─────────────────────────────────────────────
-  // SOUND ENGINE
+  // MAP TOOLBAR / SYNC
   // ─────────────────────────────────────────────
+  initMapToolbar() {
+    const btnReset = document.getElementById('btnResetView');
+    if (btnReset) {
+      btnReset.addEventListener('click', () => {
+        if (!this.leafletMap) return;
+        const center = this.phFocus ? [12.8797, 121.7740] : [12, 122];
+        const zoom   = this.phFocus ? 5 : 3;
+        this.leafletMap.flyTo(center, zoom, { duration: 1.0 });
+      });
+    }
+
+    const btnFullscreen = document.getElementById('btnFullscreen');
+    if (btnFullscreen) {
+      btnFullscreen.addEventListener('click', () => {
+        if (!this.leafletMap) return;
+        const mapEl = document.getElementById('earthquakeMap');
+        mapEl.classList.toggle('map-fullscreen');
+        btnFullscreen.classList.toggle('active', mapEl.classList.contains('map-fullscreen'));
+        setTimeout(() => this.leafletMap.invalidateSize(), 200);
+      });
+    }
+
+    const layerMap = {
+      Markers: 'markers',
+      PHBox: 'phBox',
+      FaultLines: 'faultLines',
+      DepthRings: 'depthRings',
+    };
+    Object.keys(layerMap).forEach(name => {
+      const key = layerMap[name];
+      const el = document.getElementById('layer' + name);
+      if (el) {
+        el.addEventListener('change', (e) => {
+          this.toggleLayer(key, e.target.checked);
+        });
+      }
+    });
+
+    const btnLayers = document.getElementById('btnLayers');
+    if (btnLayers) {
+      btnLayers.addEventListener('click', () => {
+        const dd = document.getElementById('mapLayersDropdown');
+        if (dd) {
+          const isOpen = dd.style.display === 'none';
+          dd.style.display = isOpen ? 'block' : 'none';
+          btnLayers.classList.toggle('active', isOpen);
+        }
+      });
+    }
+
+    const timeFilter = document.getElementById('mapTimeFilter');
+    if (timeFilter) {
+      timeFilter.addEventListener('change', (e) => {
+        this.mapTimeFilter = parseInt(e.target.value);
+        this.renderMapMarkers();
+      });
+    }
+  },
+
+  toggleLayer(name, show) {
+    if (!this.leafletMap || !this.layerGroups) return;
+    const lg = this.layerGroups[name];
+    if (!lg) return;
+    if (show) this.leafletMap.addLayer(lg);
+    else this.leafletMap.removeLayer(lg);
+  },
+
+  renderMapMarkers() {
+    const cutoff = new Date(Date.now() - this.mapTimeFilter * 3600000);
+    const filtered = this.earthquakes.filter(e => new Date(e.event_time) >= cutoff);
+    this._lastMapHash = null;
+    this.updateMap(filtered);
+    this.renderList();
+  },
+
+  syncMapToFilter(visibleIds) {
+    this.mapMarkers.forEach(marker => {
+      if (!marker.options || !marker.options.usgsId || typeof marker.setStyle !== 'function') return;
+      const isVisible = visibleIds.includes(marker.options.usgsId);
+      marker.setStyle({
+        opacity: isVisible ? (marker.options.baseOpacity ?? 0.9) : 0.08,
+        fillOpacity: isVisible ? (marker.options.baseFillOpacity ?? 0.85) : 0.05,
+      });
+    });
+  },
+
+  _debounce(fn, delay) {
+    let timer;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn.apply(this, args), delay);
+    };
+  },
+
+  // SOUND ENGINE
   audioCtx: null,
 
   initSoundEngine() {
@@ -283,8 +548,8 @@ const SW = {
       const data = await res.json();
       if (data.status === 'ok') {
         this.earthquakes = data.data;
-        this.renderList();
         this.updateMap(this.earthquakes);
+        this.renderList();
         this.updateStats();
       }
       this.setStatus('online');
@@ -317,9 +582,10 @@ const SW = {
       if (listData.status === 'ok') {
         const oldIds = new Set(this.earthquakes.map(e => e.usgs_id));
         const newOnes = listData.data.filter(e => !oldIds.has(e.usgs_id));
+        const newIds = newOnes.map(e => e.usgs_id);
         this.earthquakes = listData.data;
-        this.renderList(newOnes.map(e => e.usgs_id));
-        this.updateMap(this.earthquakes);
+        this.updateMap(this.earthquakes, newIds);
+        this.renderList(newIds);
         this.updateStats();
       }
 
@@ -417,6 +683,7 @@ const SW = {
           </svg>
           <p>No earthquakes match this filter</p>
         </div>`;
+      this.syncMapToFilter([]);
       return;
     }
 
@@ -446,6 +713,9 @@ const SW = {
           </div>
         </div>`;
     }).join('');
+
+    const visibleIds = filtered.map(e => e.usgs_id);
+    this.syncMapToFilter(visibleIds);
   },
 
   // ─────────────────────────────────────────────
@@ -514,6 +784,19 @@ const SW = {
   // ─────────────────────────────────────────────
   openDetail(usgsId) {
     const eq = this.earthquakes.find(e => e.usgs_id === usgsId);
+    if (eq && this.leafletMap) {
+      this.leafletMap.flyTo(
+        [parseFloat(eq.latitude), parseFloat(eq.longitude)],
+        7,
+        { duration: 1.2, easeLinearity: 0.4 }
+      );
+      setTimeout(() => {
+        const marker = this.mapMarkers.find(m =>
+          m.options && m.options.usgsId === usgsId && typeof m.openPopup === 'function' && m.getPopup()
+        );
+        if (marker) marker.openPopup();
+      }, 1350);
+    }
     if (!eq) return;
     this.selectedEq = eq;
     const mag = parseFloat(eq.magnitude);
@@ -795,20 +1078,26 @@ const SW = {
       : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
     L.tileLayer(url, { maxZoom: 18 }).addTo(this.leafletMap);
 
-    // Re-add PH bounding box
-    L.rectangle([[4.0, 116.0],[21.5, 127.0]], {
-      color: '#06B6D4', weight: 1,
-      fillColor: '#06B6D4', fillOpacity: 0.03,
-      dashArray: '4,4'
-    }).addTo(this.leafletMap);
+    if (this.layerGroups && this.layerGroups.phBox) {
+      const phToggle = document.getElementById('layerPHBox');
+      if (!phToggle || phToggle.checked) this.leafletMap.addLayer(this.layerGroups.phBox);
+    }
 
     // Redraw markers
-    this.updateMap(this.earthquakes);
+    this.renderMapMarkers();
+    setTimeout(() => this.leafletMap.invalidateSize(), 100);
   }
 };
 
 // ── Bootstrap ──────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  if (window.SW_CONFIG) {
+    SW.alertMag     = SW_CONFIG.alertMag;
+    SW.phMinMag     = SW_CONFIG.phMinMag;
+    SW.pollInterval = SW_CONFIG.interval;
+    SW.phFocus      = SW_CONFIG.phFocus;
+    SW.soundEnabled = SW_CONFIG.soundEnabled;
+  }
   SW.applyTheme(); // Apply before init to avoid flash
   SW.init();
 });
