@@ -65,16 +65,18 @@ SeismoWatch is a **real-time earthquake monitoring web application** that pulls 
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| **Backend** | PHP 7.4+ (OOP, PDO) |
-| **Database** | MySQL 5.7+ / MariaDB 10.3+ |
-| **Frontend** | Vanilla JavaScript (ES6+) |
-| **Mapping** | Leaflet.js 1.9.4 |
-| **Fonts** | Google Fonts (Space Grotesk, Inter, JetBrains Mono) |
-| **Tiles** | CartoDB Dark/Light Matter |
-| **Audio** | Web Audio API |
-| **Data Source** | USGS Earthquake Hazards Program GeoJSON |
+|                     Layer |                       Technology |
+|---------------------------|----------------------------------|
+| **Backend**               |              PHP 7.4+ (OOP, PDO) |
+| **Database**              |       MySQL 5.7+ / MariaDB 10.3+ |
+| **Frontend**              |        Vanilla JavaScript (ES6+) |
+| **Mapping**               |                 Leaflet.js 1.9.4 |
+| **Fonts**                 | Google Fonts (Space Grotesk,  
+                                        Inter, JetBrains Mono) |
+| **Tiles**                 |        CartoDB Dark/Light Matter |
+| **Audio**                 |                    Web Audio API |
+| **Data Source**           | USGS Earthquake Hazards Program 
+                                                       GeoJSON |
 
 ---
 
